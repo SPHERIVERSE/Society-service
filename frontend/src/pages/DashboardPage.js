@@ -201,9 +201,15 @@ function DashboardPage() {
                 <h2 className="heading-medium">Resident Dashboard</h2>
 
                 {message && <div className="message message-success">{message}</div>}
+<<<<<<< HEAD
                 
                 {error && <div className="message message-error">{error}</div>}
                 
+=======
+                }
+                {error && <div className="message message-error">{error}</div>}
+                }
+>>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d
 
                 <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
                     <h3 className="heading-small" style={{ marginBottom: '1rem' }}>Welcome, {userProfile.user.username}!</h3>
@@ -351,4 +357,8 @@ function DashboardPage() {
     );
 }
 
+<<<<<<< HEAD
 export default DashboardPage;
+=======
+export default DashboardPage;
+>>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d

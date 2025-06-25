@@ -131,9 +131,15 @@ function ProviderRegisterPage() {
         <h2 className="heading-medium">Service Provider Registration</h2>
 
         {message && <div className="message message-success">{message}</div>}
+<<<<<<< HEAD
         
         {error && <div className="message message-error">{error}</div>}
         
+=======
+        }
+        {error && <div className="message message-error">{error}</div>}
+        }
+>>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d
 
         <form onSubmit={handleSubmit} className="form-container">
           <div className="form-group">
@@ -270,4 +276,8 @@ function ProviderRegisterPage() {
   );
 }
 
+<<<<<<< HEAD
 export default ProviderRegisterPage;
+=======
+export default ProviderRegisterPage;
+>>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d

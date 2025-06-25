@@ -454,4 +454,8 @@ class InitiateProviderListingSerializer(serializers.Serializer):
             society = Society.objects.get(id=value)
             return society
         except ObjectDoesNotExist:
+<<<<<<< HEAD
             raise serializers.ValidationError("Society with this ID does not exist.")
+=======
+            raise serializers.ValidationError("Society with this ID does not exist.")
+>>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d

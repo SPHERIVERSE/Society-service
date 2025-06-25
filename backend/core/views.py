@@ -659,4 +659,8 @@ class InitiateServiceProviderListingVotingRequestView(generics.CreateAPIView):
 
         response_serializer = self.response_serializer_class(created_request_instance, context={'request': request})
 
+<<<<<<< HEAD
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+=======
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+>>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d
