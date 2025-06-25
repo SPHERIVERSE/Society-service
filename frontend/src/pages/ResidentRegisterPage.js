@@ -147,7 +147,9 @@ function ResidentRegisterPage() {
         <h2 className="heading-medium">Resident Registration</h2>
 
         {message && <div className="message message-success">{message}</div>}
+        }
         {error && <div className="message message-error">{error}</div>}
+        }
 
         <form onSubmit={handleSubmit} className="form-container">
           <div className="form-group">

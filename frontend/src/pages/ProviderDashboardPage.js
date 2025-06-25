@@ -152,7 +152,9 @@ function ProviderDashboardPage() {
                 <h2 className="heading-medium">Service Provider Dashboard</h2>
 
                 {message && <div className="message message-success">{message}</div>}
+                }
                 {error && <div className="message message-error">{error}</div>}
+                }
 
                 <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
                     {serviceProviderProfile && (

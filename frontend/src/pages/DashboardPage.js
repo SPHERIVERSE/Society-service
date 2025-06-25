@@ -201,7 +201,9 @@ function DashboardPage() {
                 <h2 className="heading-medium">Resident Dashboard</h2>
 
                 {message && <div className="message message-success">{message}</div>}
+                }
                 {error && <div className="message message-error">{error}</div>}
+                }
 
                 <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
                     <h3 className="heading-small" style={{ marginBottom: '1rem' }}>Welcome, {userProfile.user.username}!</h3>
