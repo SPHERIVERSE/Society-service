@@ -10,7 +10,8 @@ from .views import (
     RequestPasswordResetView, ConfirmPasswordResetView,
     VotingRequestViewSet, UserInitiatedVotingRequestsView,
     AvailableSocietiesForResidentView, InitiateResidentJoinVotingRequestView,
-    AvailableSocietiesForServiceProviderView, InitiateServiceProviderListingVotingRequestView
+    AvailableSocietiesForServiceProviderView, InitiateServiceProviderListingVotingRequestView,
+    CountryViewSet, StateViewSet, DistrictViewSet, CircleViewSet
 )
 
 # Create a router and register our viewsets with it.
@@ -20,7 +21,11 @@ router.register(r'services', ServiceViewSet)
 router.register(r'serviceproviders', ServiceProviderViewSet)
 # VotingRequestViewSet will handle /api/votingrequests/ and /api/votingrequests/{pk}/vote/
 router.register(r'votingrequests', VotingRequestViewSet)
-
+# Location viewsets
+router.register(r'countries', CountryViewSet)
+router.register(r'states', StateViewSet)
+router.register(r'districts', DistrictViewSet)
+router.register(r'circles', CircleViewSet)
 
 # The API URLs are now determined automatically by the router.
 urlpatterns = [
@@ -37,12 +42,10 @@ urlpatterns = [
     # Initiate service provider listing voting request
     path('votingrequests/initiate-provider-listing/', InitiateServiceProviderListingVotingRequestView.as_view(), name='initiate-provider-listing'),
 
-
     # Include the router URLs after specific paths
     # The router will automatically generate the URL for the custom action:
     # /api/societies/{society_pk}/service-providers/
     path('', include(router.urls)),
-
 
     # Authentication and Registration
     path('resident-register/', ResidentRegisterView.as_view(), name='resident-register'),
@@ -61,8 +64,6 @@ urlpatterns = [
     # Voting Related
     # User initiated requests (for both residents and providers)
     path('my-initiated-voting-requests/', UserInitiatedVotingRequestsView.as_view(), name='my-initiated-voting-requests'),
-
-
 ]
 
 # Debug print to show generated URL patterns
@@ -70,5 +71,3 @@ print("--- Generated URL Patterns ---")
 for pattern in router.urls:
     print(pattern)
 print("------------------------------")
-
-

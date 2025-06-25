@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import LocationSelector from '../components/LocationSelector';
 import '../App.css';
 
 function ProviderRegisterPage() {
@@ -14,7 +15,11 @@ function ProviderRegisterPage() {
     name: '',
     contact_info: '',
     brief_note: '',
-    service_ids: []
+    service_ids: [],
+    country_id: '',
+    state_id: '',
+    district_id: '',
+    circle_id: ''
   });
   const [services, setServices] = useState([]);
   const [error, setError] = useState('');
@@ -23,12 +28,13 @@ function ProviderRegisterPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
 
+  const backendIp = '127.0.0.1';
+  const backendPort = '8000';
+
   // Fetch available services on component mount
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const backendIp = '127.0.0.1';
-        const backendPort = '8000';
         const response = await axios.get(`http://${backendIp}:${backendPort}/api/services/`);
         console.log("Services fetched:", response.data);
         setServices(response.data);
@@ -46,6 +52,16 @@ function ProviderRegisterPage() {
     setFormData({
       ...formData,
       [name]: value,
+    });
+  };
+
+  const handleLocationChange = (location) => {
+    setFormData({
+      ...formData,
+      country_id: location.country,
+      state_id: location.state,
+      district_id: location.district,
+      circle_id: location.circle
     });
   };
 
@@ -76,49 +92,58 @@ function ProviderRegisterPage() {
       return;
     }
 
+    if (!formData.country_id || !formData.state_id || !formData.district_id || !formData.circle_id) {
+      setError('Please select your complete location (Country, State, District, Circle).');
+      setLoading(false);
+      return;
+    }
+
     console.log("Attempting Provider Registration:", formData);
 
     try {
-      const backendIp = '127.0.0.1';
-      const backendPort = '8000';
       const registerEndpoint = `http://${backendIp}:${backendPort}/api/provider-register/`;
 
       const response = await axios.post(registerEndpoint, {
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          contact_info: formData.contact_info,
-          brief_note: formData.brief_note,
-          service_ids: formData.service_ids
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        contact_info: formData.contact_info,
+        brief_note: formData.brief_note,
+        service_ids: formData.service_ids,
+        country_id: parseInt(formData.country_id),
+        state_id: parseInt(formData.state_id),
+        district_id: parseInt(formData.district_id),
+        circle_id: parseInt(formData.circle_id)
       });
-       console.log("Registration successful:", response.data);
+      
+      console.log("Registration successful:", response.data);
 
       setMessage('Registration successful! Your account is pending approval.');
       setTimeout(() => {
-           navigate('/login?role=provider');
+        navigate('/login?role=provider');
       }, 2000);
 
     } catch (err) {
       console.error("Registration error:", err.response ? err.response.data : err.message);
-       let errorMessage = 'An error occurred during registration.';
-       if (err.response && err.response.data) {
-           if (err.response.data.username) {
-               errorMessage = `Username error: ${err.response.data.username.join(', ')}`;
-           } else if (err.response.data.email) {
-               errorMessage = `Email error: ${err.response.data.email.join(', ')}`;
-           } else if (err.response.data.password) {
-                errorMessage = `Password error: ${err.response.data.password.join(', ')}`;
-           } else if (err.response.data.name) {
-                errorMessage = `Provider Name error: ${err.response.data.name.join(', ')}`;
-           } else if (err.response.data.service_ids) {
-                errorMessage = `Service selection error: ${err.response.data.service_ids.join(', ')}`;
-           } else if (err.response.data.detail) {
-               errorMessage = `Error: ${err.response.data.detail}`;
-           } else {
-               errorMessage = `Error: ${JSON.stringify(err.response.data)}`;
-           }
-       }
+      let errorMessage = 'An error occurred during registration.';
+      if (err.response && err.response.data) {
+        if (err.response.data.username) {
+          errorMessage = `Username error: ${err.response.data.username.join(', ')}`;
+        } else if (err.response.data.email) {
+          errorMessage = `Email error: ${err.response.data.email.join(', ')}`;
+        } else if (err.response.data.password) {
+          errorMessage = `Password error: ${err.response.data.password.join(', ')}`;
+        } else if (err.response.data.name) {
+          errorMessage = `Provider Name error: ${err.response.data.name.join(', ')}`;
+        } else if (err.response.data.service_ids) {
+          errorMessage = `Service selection error: ${err.response.data.service_ids.join(', ')}`;
+        } else if (err.response.data.detail) {
+          errorMessage = `Error: ${err.response.data.detail}`;
+        } else {
+          errorMessage = `Error: ${JSON.stringify(err.response.data)}`;
+        }
+      }
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -131,15 +156,7 @@ function ProviderRegisterPage() {
         <h2 className="heading-medium">Service Provider Registration</h2>
 
         {message && <div className="message message-success">{message}</div>}
-<<<<<<< HEAD
-        
         {error && <div className="message message-error">{error}</div>}
-        
-=======
-        }
-        {error && <div className="message message-error">{error}</div>}
-        }
->>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d
 
         <form onSubmit={handleSubmit} className="form-container">
           <div className="form-group">
@@ -238,6 +255,15 @@ function ProviderRegisterPage() {
             />
           </div>
 
+          <LocationSelector
+            selectedCountry={formData.country_id}
+            selectedState={formData.state_id}
+            selectedDistrict={formData.district_id}
+            selectedCircle={formData.circle_id}
+            onLocationChange={handleLocationChange}
+            disabled={loading}
+          />
+
           <div className="form-group">
             <label htmlFor="services" className="label">Services Offered (select multiple):</label>
             <select
@@ -276,8 +302,4 @@ function ProviderRegisterPage() {
   );
 }
 
-<<<<<<< HEAD
 export default ProviderRegisterPage;
-=======
-export default ProviderRegisterPage;
->>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d

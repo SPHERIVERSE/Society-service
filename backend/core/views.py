@@ -33,13 +33,59 @@ from .serializers import (
     VotingRequestSerializer,
     LoginSerializer,
     InitiateResidentJoinSerializer,
-    InitiateProviderListingSerializer
+    InitiateProviderListingSerializer,
+    CountrySerializer,
+    StateSerializer,
+    DistrictSerializer,
+    CircleSerializer
 )
 
 from .models import (
     Society, Service, ServiceProvider, Profile, OTP,
-    VotingRequest, Vote
+    VotingRequest, Vote, Country, State, District, Circle
 )
+
+# --- Location ViewSets ---
+class CountryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+    permission_classes = [AllowAny]
+
+class StateViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = State.objects.all()
+    serializer_class = StateSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        queryset = State.objects.all()
+        country_id = self.request.query_params.get('country_id')
+        if country_id:
+            queryset = queryset.filter(country_id=country_id)
+        return queryset
+
+class DistrictViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = District.objects.all()
+    serializer_class = DistrictSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        queryset = District.objects.all()
+        state_id = self.request.query_params.get('state_id')
+        if state_id:
+            queryset = queryset.filter(state_id=state_id)
+        return queryset
+
+class CircleViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Circle.objects.all()
+    serializer_class = CircleSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        queryset = Circle.objects.all()
+        district_id = self.request.query_params.get('district_id')
+        if district_id:
+            queryset = queryset.filter(district_id=district_id)
+        return queryset
 
 # Society Viewset
 class SocietyViewSet(viewsets.ModelViewSet):
@@ -54,7 +100,24 @@ class SocietyViewSet(viewsets.ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def get_queryset(self):
-        return Society.objects.all()
+        queryset = Society.objects.all()
+        
+        # Filter by location if provided
+        country_id = self.request.query_params.get('country_id')
+        state_id = self.request.query_params.get('state_id')
+        district_id = self.request.query_params.get('district_id')
+        circle_id = self.request.query_params.get('circle_id')
+        
+        if country_id:
+            queryset = queryset.filter(country_id=country_id)
+        if state_id:
+            queryset = queryset.filter(state_id=state_id)
+        if district_id:
+            queryset = queryset.filter(district_id=district_id)
+        if circle_id:
+            queryset = queryset.filter(circle_id=circle_id)
+            
+        return queryset
 
     @action(detail=True, methods=['get'], url_path='service-providers')
     def service_providers(self, request, pk=None):
@@ -113,7 +176,6 @@ class SocietyViewSet(viewsets.ModelViewSet):
             print(f"DEBUG SocietyViewSet (service_categories_with_counts action) Error: {e}")
             return Response({"detail": "An error occurred while fetching service categories with counts."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # Service ViewSet
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
@@ -129,7 +191,6 @@ class ServiceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Service.objects.all()
 
-
 # ServiceProvider ViewSet
 class ServiceProviderViewSet(viewsets.ModelViewSet):
     queryset = ServiceProvider.objects.all()
@@ -138,7 +199,6 @@ class ServiceProviderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ServiceProvider.objects.all()
-
 
 # List voting requests initiated by the current user
 class UserInitiatedVotingRequestsView(generics.ListAPIView):
@@ -174,7 +234,6 @@ class UserInitiatedVotingRequestsView(generics.ListAPIView):
         print("DEBUG UserInitiatedVotingRequestsView (list): Serialized data:", serializer.data)
         return Response(serializer.data)
 
-
 # --- Authentication and Registration Views ---
 
 # Resident Login View
@@ -203,7 +262,6 @@ class ResidentLoginView(APIView):
             print(f"DEBUG: Resident Login Error: {e}")
             return Response({"detail": "An error occurred during login."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # Provider Login View
 class ProviderLoginView(APIView):
     permission_classes = [AllowAny]
@@ -230,7 +288,6 @@ class ProviderLoginView(APIView):
             print(f"DEBUG: Provider Login Error: {e}")
             return Response({"detail": "An error occurred during login."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # Resident Registration View
 class ResidentRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -239,7 +296,6 @@ class ResidentRegisterView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         user = serializer.save()
-
 
 # Provider Registration View
 class ProviderRegisterView(generics.CreateAPIView):
@@ -256,7 +312,6 @@ class ProviderRegisterView(generics.CreateAPIView):
         response_serializer = ServiceProviderSerializer(service_provider)
 
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
 
 # --- Profile Management Views ---
 
@@ -276,7 +331,6 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
         instance = Profile.objects.prefetch_related('societies').get(pk=instance.pk)
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
-
 
 # View/Update current service provider's profile
 class ServiceProviderSelfManagementView(generics.RetrieveUpdateAPIView):
@@ -300,7 +354,6 @@ class ServiceProviderSelfManagementView(generics.RetrieveUpdateAPIView):
         print(f"DEBUG ServiceProviderSelfManagementView: Serialized ServiceProvider data: {serializer.data}")
         return Response(serializer.data)
 
-
 # List societies the current user is a resident of
 class MySocietyListView(generics.ListAPIView):
     serializer_class = SocietySerializer
@@ -311,7 +364,6 @@ class MySocietyListView(generics.ListAPIView):
         if hasattr(user, 'profile') and user.profile.societies.exists():
             return user.profile.societies.all()
         return Society.objects.none()
-
 
 # --- Password Reset Views ---
 
@@ -324,7 +376,6 @@ class RequestPasswordResetView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
         return Response({"detail": "Password reset OTP sent if email exists."}, status=status.HTTP_200_OK)
-
 
 class ConfirmPasswordResetView(APIView):
     serializer_class = ConfirmPasswordResetSerializer
@@ -340,7 +391,6 @@ class ConfirmPasswordResetView(APIView):
         user.save()
 
         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
-
 
 # --- Voting Views ---
 
@@ -398,7 +448,6 @@ def check_and_update_voting_request_status(voting_request):
     if voting_request.status != 'pending':
         voting_request.save()
         print(f"DEBUG Voting Status Update: Voting request {voting_request.id} status updated to '{voting_request.status}'.")
-
 
 class VotingRequestViewSet(viewsets.ModelViewSet):
     queryset = VotingRequest.objects.all()
@@ -496,7 +545,6 @@ class VotingRequestViewSet(viewsets.ModelViewSet):
             print(f"DEBUG VotingRequestViewSet (vote action) Error: {e}")
             return Response({"detail": "An error occurred while recording the vote."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # New View to list societies available for the current resident to join
 class AvailableSocietiesForResidentView(generics.ListAPIView):
     serializer_class = SocietySerializer
@@ -508,8 +556,14 @@ class AvailableSocietiesForResidentView(generics.ListAPIView):
             return Society.objects.none()
 
         user_society_ids = user.profile.societies.values_list('id', flat=True)
-
-        queryset = Society.objects.exclude(id__in=user_society_ids)
+        
+        # Filter societies by user's location
+        queryset = Society.objects.filter(
+            country=user.profile.country,
+            state=user.profile.state,
+            district=user.profile.district,
+            circle=user.profile.circle
+        ).exclude(id__in=user_society_ids)
 
         print(f"DEBUG AvailableSocietiesForResidentView: User {user.username} ({user.id}) is in societies: {list(user_society_ids)}. Available societies count: {queryset.count()}")
 
@@ -545,14 +599,19 @@ class AvailableSocietiesForServiceProviderView(generics.ListAPIView):
         excluded_society_ids = list(associated_society_ids) + list(pending_request_society_ids)
         print(f"DEBUG AvailableSocietiesForServiceProviderView: Combined excluded society IDs: {excluded_society_ids}")
 
-        queryset = Society.objects.exclude(id__in=excluded_society_ids)
+        # Filter societies by service provider's location
+        queryset = Society.objects.filter(
+            country=service_provider.country,
+            state=service_provider.state,
+            district=service_provider.district,
+            circle=service_provider.circle
+        ).exclude(id__in=excluded_society_ids)
 
         print(f"DEBUG AvailableSocietiesForServiceProviderView: Available societies count: {queryset.count()}")
 
         queryset = queryset.annotate(resident_count=Count('profiles'))
 
         return queryset
-
 
 # New View to initiate a resident join voting request
 class InitiateResidentJoinVotingRequestView(generics.CreateAPIView):
@@ -659,8 +718,4 @@ class InitiateServiceProviderListingVotingRequestView(generics.CreateAPIView):
 
         response_serializer = self.response_serializer_class(created_request_instance, context={'request': request})
 
-<<<<<<< HEAD
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-=======
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
->>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d

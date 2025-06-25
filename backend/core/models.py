@@ -8,10 +8,57 @@ from datetime import timedelta # Import timedelta
 
 # Create your models here.
 
+# Location Models
+class Country(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=3, unique=True)  # ISO country code
+    
+    class Meta:
+        verbose_name_plural = "Countries"
+    
+    def __str__(self):
+        return self.name
+
+class State(models.Model):
+    name = models.CharField(max_length=100)
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='states')
+    code = models.CharField(max_length=10, blank=True, null=True)  # State code
+    
+    class Meta:
+        unique_together = ('name', 'country')
+    
+    def __str__(self):
+        return f"{self.name}, {self.country.name}"
+
+class District(models.Model):
+    name = models.CharField(max_length=100)
+    state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='districts')
+    
+    class Meta:
+        unique_together = ('name', 'state')
+    
+    def __str__(self):
+        return f"{self.name}, {self.state.name}"
+
+class Circle(models.Model):
+    name = models.CharField(max_length=100)
+    district = models.ForeignKey(District, on_delete=models.CASCADE, related_name='circles')
+    
+    class Meta:
+        unique_together = ('name', 'district')
+    
+    def __str__(self):
+        return f"{self.name}, {self.district.name}"
+
 # User Profile Model (for Residents)
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     phone_number = models.CharField(max_length=15, blank=True, null=True)
+    # Location fields
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+    district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
+    circle = models.ForeignKey(Circle, on_delete=models.SET_NULL, null=True, blank=True)
     # ManyToMany relationship with Society for residents
     societies = models.ManyToManyField('Society', related_name='profiles', blank=True) # Residents can be in multiple societies
 
@@ -30,6 +77,11 @@ class Service(models.Model):
 class Society(models.Model):
     name = models.CharField(max_length=255, unique=True)
     address = models.TextField()
+    # Location fields
+    country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='societies')
+    state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='societies')
+    district = models.ForeignKey(District, on_delete=models.CASCADE, related_name='societies')
+    circle = models.ForeignKey(Circle, on_delete=models.CASCADE, related_name='societies')
     # Residents are linked via the Profile model's ManyToMany relationship
 
     class Meta:
@@ -47,15 +99,18 @@ class ServiceProvider(models.Model):
     contact_info = models.CharField(max_length=255, blank=True, null=True)
     brief_note = models.TextField(blank=True, null=True)
     is_approved = models.BooleanField(default=False) # Whether the provider is approved to list services
+    # Location fields
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True, blank=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True, blank=True)
+    district = models.ForeignKey(District, on_delete=models.SET_NULL, null=True, blank=True)
+    circle = models.ForeignKey(Circle, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # ManyToMany relationship with Service for services offered
     services = models.ManyToManyField(Service, related_name='service_providers', blank=True) # Services offered by this provider
 
-
     def __str__(self):
         return self.name # Or self.user.username if you prefer
-
 
 # OTP Model for password reset
 class OTP(models.Model):
@@ -116,7 +171,6 @@ class VotingRequest(models.Model):
 
         return f"{self.get_request_type_display()} for {self.society.name} ({self.get_status_display()}) - {target}"
 
-
 # Vote Model
 class Vote(models.Model):
     VOTE_CHOICES = [
@@ -133,5 +187,3 @@ class Vote(models.Model):
 
     def __str__(self):
         return f"{self.voter.username} voted {self.get_vote_type_display()} on Request {self.request.id}"
-
-

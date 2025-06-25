@@ -10,7 +10,7 @@ function DashboardPage() {
     const [societies, setSocieties] = useState([]);
     const [availableSocieties, setAvailableSocieties] = useState([]);
     const [initiatedRequests, setInitiatedRequests] = useState([]);
-    const [votingRequests, setVotingRequests] = useState([]); // New state for voting requests
+    const [votingRequests, setVotingRequests] = useState([]);
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
@@ -50,7 +50,7 @@ function DashboardPage() {
             setSocieties(profileResponse.data.societies || []);
 
             console.log("DashboardPage: Attempting to fetch available societies...");
-            // Fetch Societies available to join
+            // Fetch Societies available to join (now filtered by location)
             const availableSocietiesResponse = await axios.get(`http://${backendIp}:${backendPort}/api/societies/available-for-resident/`, { headers });
             console.log("DashboardPage: Available societies fetched:", availableSocietiesResponse.data);
             setAvailableSocieties(availableSocietiesResponse.data);
@@ -201,20 +201,22 @@ function DashboardPage() {
                 <h2 className="heading-medium">Resident Dashboard</h2>
 
                 {message && <div className="message message-success">{message}</div>}
-<<<<<<< HEAD
-                
                 {error && <div className="message message-error">{error}</div>}
-                
-=======
-                }
-                {error && <div className="message message-error">{error}</div>}
-                }
->>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d
 
                 <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
                     <h3 className="heading-small" style={{ marginBottom: '1rem' }}>Welcome, {userProfile.user.username}!</h3>
                     <p><strong>Email:</strong> {userProfile.user.email}</p>
                     <p><strong>Phone:</strong> {userProfile.phone_number || 'N/A'}</p>
+                    
+                    {/* Display location information */}
+                    {userProfile.country && (
+                        <div style={{ marginTop: '1rem' }}>
+                            <p><strong>Location:</strong></p>
+                            <p style={{ marginLeft: '1rem' }}>
+                                {userProfile.country.name}, {userProfile.state.name}, {userProfile.district.name}, {userProfile.circle.name}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* --- Associated Societies Section --- */}
@@ -296,7 +298,7 @@ function DashboardPage() {
 
                 {/* --- Available Societies to Join Section --- */}
                 <div style={{ marginBottom: '2rem', textAlign: 'left' }}>
-                    <h3 className="heading-small" style={{ marginBottom: '1rem' }}>Societies Available to Join</h3>
+                    <h3 className="heading-small" style={{ marginBottom: '1rem' }}>Societies Available to Join in Your Area</h3>
                     {loading ? (
                         <p>Loading available societies...</p>
                     ) : availableSocieties.length > 0 ? (
@@ -316,7 +318,7 @@ function DashboardPage() {
                             ))}
                         </ul>
                     ) : (
-                        !loading && <p>No societies available for you to join at this time.</p>
+                        !loading && <p>No societies available for you to join in your area at this time.</p>
                     )}
                 </div>
 
@@ -357,8 +359,4 @@ function DashboardPage() {
     );
 }
 
-<<<<<<< HEAD
 export default DashboardPage;
-=======
-export default DashboardPage;
->>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d

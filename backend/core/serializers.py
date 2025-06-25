@@ -10,48 +10,81 @@ from django.contrib.auth import authenticate
 
 from .models import (
     Society, Service, ServiceProvider, Profile, OTP,
-    VotingRequest, Vote
+    VotingRequest, Vote, Country, State, District, Circle
 )
+
+# --- Location Serializers ---
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = ['id', 'name', 'code']
+
+class StateSerializer(serializers.ModelSerializer):
+    country = CountrySerializer(read_only=True)
+    
+    class Meta:
+        model = State
+        fields = ['id', 'name', 'code', 'country']
+
+class DistrictSerializer(serializers.ModelSerializer):
+    state = StateSerializer(read_only=True)
+    
+    class Meta:
+        model = District
+        fields = ['id', 'name', 'state']
+
+class CircleSerializer(serializers.ModelSerializer):
+    district = DistrictSerializer(read_only=True)
+    
+    class Meta:
+        model = Circle
+        fields = ['id', 'name', 'district']
 
 # --- Basic Serializers ---
 class SocietySerializer(serializers.ModelSerializer):
-     resident_count = serializers.SerializerMethodField()
+    resident_count = serializers.SerializerMethodField()
+    country = CountrySerializer(read_only=True)
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+    circle = CircleSerializer(read_only=True)
 
-     class Meta:
+    class Meta:
         model = Society
-        fields = ['id', 'name', 'address', 'resident_count']
+        fields = ['id', 'name', 'address', 'resident_count', 'country', 'state', 'district', 'circle']
 
-     def get_resident_count(self, obj):
-         """
-         Calculates the number of residents associated with this society.
-         Uses the 'profiles' related_name from Profile.societies ManyToManyField.
-         """
-         return obj.profiles.count()
-
+    def get_resident_count(self, obj):
+        """
+        Calculates the number of residents associated with this society.
+        Uses the 'profiles' related_name from Profile.societies ManyToManyField.
+        """
+        return obj.profiles.count()
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email']
 
-
 class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = ['id', 'name', 'description']
-
 
 # ServiceProvider Serializer for displaying ServiceProvider details
 class ServiceProviderSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     services = ServiceSerializer(many=True, read_only=True)
     societies = SocietySerializer(many=True, read_only=True)
+    country = CountrySerializer(read_only=True)
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+    circle = CircleSerializer(read_only=True)
 
     class Meta:
         model = ServiceProvider
         fields = [
             'id', 'user', 'societies', 'name', 'contact_info', 'brief_note',
-            'is_approved', 'created_at', 'updated_at', 'services'
+            'is_approved', 'created_at', 'updated_at', 'services',
+            'country', 'state', 'district', 'circle'
         ]
         read_only_fields = ['id', 'user', 'societies', 'is_approved', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -61,7 +94,6 @@ class ServiceProviderSerializer(serializers.ModelSerializer):
              'services': {'required': False}
         }
 
-
 # --- Authentication & Registration Serializers ---
 
 # Resident Registration Serializer
@@ -69,6 +101,14 @@ class ResidentRegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
+    phone_number = serializers.CharField(max_length=15, write_only=True, required=False, allow_blank=True)
+    
+    # Location fields
+    country_id = serializers.IntegerField(write_only=True)
+    state_id = serializers.IntegerField(write_only=True)
+    district_id = serializers.IntegerField(write_only=True)
+    circle_id = serializers.IntegerField(write_only=True)
+    
     society_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -76,60 +116,90 @@ class ResidentRegisterSerializer(serializers.Serializer):
         allow_empty=True,
         help_text="List of society IDs the resident is joining (optional)."
     )
-    phone_number = serializers.CharField(max_length=15, write_only=True, required=False, allow_blank=True)
 
     id = serializers.IntegerField(read_only=True)
 
     def validate_username(self, value):
-        print(f"DEBUG: ResidentRegisterSerializer - validate_username called with value: {value}")
         if User.objects.filter(username=value).exists():
-            print(f"DEBUG: ResidentRegisterSerializer - Username '{value}' already exists.")
             raise serializers.ValidationError("A user with that username already exists.")
-        print(f"DEBUG: ResidentRegisterSerializer - Username '{value}' is available.")
         return value
 
     def validate_email(self, value):
-        print(f"DEBUG: ResidentRegisterSerializer - validate_email called with value: {value}")
         if User.objects.filter(email=value).exists():
-            print(f"DEBUG: ResidentRegisterSerializer - Email '{value}' already exists.")
             raise serializers.ValidationError("A user with that email already exists.")
-        print(f"DEBUG: ResidentRegisterSerializer - Email '{value}' is available.")
+        return value
+
+    def validate_country_id(self, value):
+        try:
+            Country.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"Country with ID {value} does not exist.")
+        return value
+
+    def validate_state_id(self, value):
+        try:
+            State.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"State with ID {value} does not exist.")
+        return value
+
+    def validate_district_id(self, value):
+        try:
+            District.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"District with ID {value} does not exist.")
+        return value
+
+    def validate_circle_id(self, value):
+        try:
+            Circle.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"Circle with ID {value} does not exist.")
         return value
 
     def validate_society_ids(self, values):
-        print(f"DEBUG: ResidentRegisterSerializer - validate_society_ids called with values: {values}")
         if not values:
-             print("DEBUG: ResidentRegisterSerializer - society_ids is empty, which is allowed.")
-             return values
+            return values
 
         for society_id in values:
             try:
                 Society.objects.get(id=society_id)
             except ObjectDoesNotExist:
                 raise serializers.ValidationError(f"Society with ID {society_id} does not exist.")
-        print(f"DEBUG: ResidentRegisterSerializer - All society IDs {values} exist.")
         return values
+
+    def validate(self, data):
+        # Validate location hierarchy
+        country_id = data.get('country_id')
+        state_id = data.get('state_id')
+        district_id = data.get('district_id')
+        circle_id = data.get('circle_id')
+
+        try:
+            country = Country.objects.get(id=country_id)
+            state = State.objects.get(id=state_id, country=country)
+            district = District.objects.get(id=district_id, state=state)
+            circle = Circle.objects.get(id=circle_id, district=district)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError("Invalid location hierarchy. Please check your selections.")
+
+        return data
 
     @transaction.atomic
     def create(self, validated_data):
-        print("DEBUG: ResidentRegisterSerializer validated_data (at start of create):", validated_data)
-
         username = validated_data.get('username')
         email = validated_data.get('email')
         password = validated_data.get('password')
 
-        if not username:
-             print("DEBUG: ResidentRegisterSerializer - Username is None after .get()")
-             raise serializers.ValidationError("Internal Error: Username missing from validated data during creation.")
-        if not email:
-             print("DEBUG: ResidentRegisterSerializer - Email is None after .get()")
-             raise serializers.ValidationError("Internal Error: Email missing from validated data during creation.")
-        if not password:
-             print("DEBUG: ResidentRegisterSerializer - Password is None after .get()")
-             raise serializers.ValidationError("Internal Error: Password missing from validated data during creation.")
-
         society_ids = validated_data.pop('society_ids', [])
         phone_number = validated_data.pop('phone_number', '')
+        
+        # Extract location data
+        country_id = validated_data.pop('country_id')
+        state_id = validated_data.pop('state_id')
+        district_id = validated_data.pop('district_id')
+        circle_id = validated_data.pop('circle_id')
+        
         validated_data.pop('password', None)
 
         user = User.objects.create_user(
@@ -140,20 +210,20 @@ class ResidentRegisterSerializer(serializers.Serializer):
 
         profile = Profile.objects.create(
             user=user,
-            phone_number=phone_number
+            phone_number=phone_number,
+            country_id=country_id,
+            state_id=state_id,
+            district_id=district_id,
+            circle_id=circle_id
         )
 
         if society_ids:
             societies_to_add = Society.objects.filter(id__in=society_ids)
             profile.societies.set(societies_to_add)
-            print(f"DEBUG: ResidentRegisterSerializer - Profile linked to societies: {society_ids}")
-        else:
-             print("DEBUG: ResidentRegisterSerializer - No societies selected during registration.")
 
         return user
 
-
-# Provider Registration View - Uses ProviderRegisterSerializer
+# Provider Registration Serializer
 class ProviderRegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
@@ -167,25 +237,24 @@ class ProviderRegisterSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     contact_info = serializers.CharField(max_length=255, required=False, allow_blank=True)
     brief_note = serializers.CharField(style={'base_template': 'textarea.html'}, required=False, allow_blank=True)
+    
+    # Location fields
+    country_id = serializers.IntegerField(write_only=True)
+    state_id = serializers.IntegerField(write_only=True)
+    district_id = serializers.IntegerField(write_only=True)
+    circle_id = serializers.IntegerField(write_only=True)
 
     def validate_username(self, value):
-        print(f"DEBUG: ProviderRegisterSerializer - validate_username called with value: {value}")
         if User.objects.filter(username=value).exists():
-            print(f"DEBUG: ProviderRegisterSerializer - Username '{value}' already exists.")
             raise serializers.ValidationError("A user with that username already exists.")
-        print(f"DEBUG: ProviderRegisterSerializer - Username '{value}' is available.")
         return value
 
     def validate_email(self, value):
-        print(f"DEBUG: ProviderRegisterSerializer - validate_email called with value: {value}")
         if User.objects.filter(email=value).exists():
-            print(f"DEBUG: ProviderRegisterSerializer - Email '{value}' already exists.")
             raise serializers.ValidationError("A user with that email already exists.")
-        print(f"DEBUG: ProviderRegisterSerializer - Email '{value}' is available.")
         return value
 
     def validate_service_ids(self, values):
-        print(f"DEBUG: ProviderRegisterSerializer - validate_service_ids called with values: {values}")
         if not values:
             raise serializers.ValidationError("At least one service ID must be provided.")
         for service_id in values:
@@ -193,8 +262,52 @@ class ProviderRegisterSerializer(serializers.Serializer):
                 Service.objects.get(id=service_id)
             except ObjectDoesNotExist:
                 raise serializers.ValidationError(f"Service with ID {service_id} does not exist.")
-        print(f"DEBUG: ProviderRegisterSerializer - All service IDs {values} exist.")
         return values
+
+    def validate_country_id(self, value):
+        try:
+            Country.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"Country with ID {value} does not exist.")
+        return value
+
+    def validate_state_id(self, value):
+        try:
+            State.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"State with ID {value} does not exist.")
+        return value
+
+    def validate_district_id(self, value):
+        try:
+            District.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"District with ID {value} does not exist.")
+        return value
+
+    def validate_circle_id(self, value):
+        try:
+            Circle.objects.get(id=value)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError(f"Circle with ID {value} does not exist.")
+        return value
+
+    def validate(self, data):
+        # Validate location hierarchy
+        country_id = data.get('country_id')
+        state_id = data.get('state_id')
+        district_id = data.get('district_id')
+        circle_id = data.get('circle_id')
+
+        try:
+            country = Country.objects.get(id=country_id)
+            state = State.objects.get(id=state_id, country=country)
+            district = District.objects.get(id=district_id, state=state)
+            circle = Circle.objects.get(id=circle_id, district=district)
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError("Invalid location hierarchy. Please check your selections.")
+
+        return data
 
     @transaction.atomic
     def create(self, validated_data):
@@ -208,6 +321,12 @@ class ProviderRegisterSerializer(serializers.Serializer):
         provider_name = validated_data.pop('name')
         contact_info = validated_data.pop('contact_info', '')
         brief_note = validated_data.pop('brief_note', '')
+        
+        # Extract location data
+        country_id = validated_data.pop('country_id')
+        state_id = validated_data.pop('state_id')
+        district_id = validated_data.pop('district_id')
+        circle_id = validated_data.pop('circle_id')
 
         user = User.objects.create_user(
             username=username,
@@ -219,14 +338,17 @@ class ProviderRegisterSerializer(serializers.Serializer):
             user=user,
             name=provider_name,
             contact_info=contact_info,
-            brief_note=brief_note
+            brief_note=brief_note,
+            country_id=country_id,
+            state_id=state_id,
+            district_id=district_id,
+            circle_id=circle_id
         )
         
         services = Service.objects.filter(id__in=service_ids)
         service_provider.services.set(services)
 
         return service_provider
-
 
 # Login Serializer
 class LoginSerializer(serializers.Serializer):
@@ -247,27 +369,33 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Must include 'username' and 'password'.")
         return data
 
-
 # --- Profile & Service Provider Management Serializers ---
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     societies = SocietySerializer(many=True, read_only=True)
+    country = CountrySerializer(read_only=True)
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+    circle = CircleSerializer(read_only=True)
 
     class Meta:
         model = Profile
-        fields = ['user', 'phone_number', 'societies']
+        fields = ['user', 'phone_number', 'societies', 'country', 'state', 'district', 'circle']
         read_only_fields = ['user']
-
 
 class ServiceProviderSelfManageSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     societies = SocietySerializer(many=True, read_only=True)
     services = ServiceSerializer(many=True, read_only=True)
+    country = CountrySerializer(read_only=True)
+    state = StateSerializer(read_only=True)
+    district = DistrictSerializer(read_only=True)
+    circle = CircleSerializer(read_only=True)
 
     class Meta:
         model = ServiceProvider
-        fields = ['id', 'user', 'societies', 'name', 'contact_info', 'brief_note', 'services', 'is_approved']
+        fields = ['id', 'user', 'societies', 'name', 'contact_info', 'brief_note', 'services', 'is_approved', 'country', 'state', 'district', 'circle']
         read_only_fields = ['id', 'user', 'societies', 'is_approved', 'created_at', 'updated_at']
         extra_kwargs = {
              'name': {'required': False},
@@ -275,7 +403,6 @@ class ServiceProviderSelfManageSerializer(serializers.ModelSerializer):
              'brief_note': {'required': False, 'allow_blank': True},
              'services': {'required': False}
         }
-
 
 # --- Password Reset Serializers ---
 
@@ -286,7 +413,6 @@ class RequestPasswordResetSerializer(serializers.Serializer):
         if not User.objects.filter(email=value).exists():
             raise serializers.ValidationError("No user found with this email address.")
         return value
-
 
 class ConfirmPasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -315,7 +441,6 @@ class ConfirmPasswordResetSerializer(serializers.Serializer):
         data['user'] = user
         return data
 
-
 # --- Voting Serializers ---
 
 class VotingRequestSerializer(serializers.ModelSerializer):
@@ -332,13 +457,11 @@ class VotingRequestSerializer(serializers.ModelSerializer):
     def get_approved_votes_count(self, obj):
         """Returns the count of 'approve' votes for this request."""
         count = obj.votes.filter(vote_type='approve').count()
-        print(f"DEBUG Serializer: get_approved_votes_count called for Request {obj.id}. Result: {count}")
         return count
 
     def get_rejected_votes_count(self, obj):
         """Returns the count of 'reject' votes for this request."""
         count = obj.votes.filter(vote_type='reject').count()
-        print(f"DEBUG Serializer: get_rejected_votes_count called for Request {obj.id}. Result: {count}")
         return count
 
     class Meta:
@@ -359,9 +482,7 @@ class VotingRequestSerializer(serializers.ModelSerializer):
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             user = request.user
             has_voted = obj.votes.filter(voter=user).exists()
-            print(f"DEBUG Serializer: get_has_voted called for Request {obj.id} by user {user.username}. Result: {has_voted}")
             return has_voted
-        print(f"DEBUG Serializer: get_has_voted called for Request {obj.id} by unauthenticated user.")
         return False
 
 # Serializer for casting a vote
@@ -381,58 +502,37 @@ class VoteSerializer(serializers.ModelSerializer):
         voter = request_context.user
 
         if not request_obj:
-             print("DEBUG VoteSerializer: voting_request not found in context.")
              raise serializers.ValidationError("Voting request context is missing.")
-
-        print(f"DEBUG VoteSerializer: validate called for Request {request_obj.id} by user {voter.username}.")
-        print(f"DEBUG VoteSerializer: Received data: {data}")
-        print(f"DEBUG VoteSerializer: Request Type: {request_obj.request_type}, Request Status: {request_obj.status}, Request Expiry: {request_obj.expiry_time}")
-        print(f"DEBUG VoteSerializer: Current time: {timezone.now()}")
-        print(f"DEBUG VoteSerializer: Is user authenticated? {voter.is_authenticated}")
-        print(f"DEBUG VoteSerializer: User ID: {voter.id}, Initiator ID: {request_obj.initiated_by.id}")
-        print(f"DEBUG VoteSerializer: Does user have profile? {hasattr(voter, 'profile')}")
 
         user_is_resident = hasattr(voter, 'profile')
 
         if user_is_resident and request_obj.society:
              user_societies = list(voter.profile.societies.all().values_list('id', flat=True))
-             print(f"DEBUG VoteSerializer: User's society IDs: {user_societies}")
-             print(f"DEBUG VoteSerializer: Request society ID: {request_obj.society.id}")
              is_user_in_request_society = request_obj.society.id in user_societies
-             print(f"DEBUG VoteSerializer: Is user in request society? {is_user_in_request_society}")
         else:
-             print("DEBUG VoteSerializer: User is not a resident or request has no society.")
              is_user_in_request_society = False
 
         if Vote.objects.filter(request=request_obj, voter=voter).exists():
-            print(f"DEBUG VoteSerializer: User {voter.username} already voted on Request {request_obj.id}.")
             raise serializers.ValidationError("You have already voted on this request.")
 
         if request_obj.status != 'pending':
-             print(f"DEBUG VoteSerializer: Request {request_obj.id} is not pending (status: {request_obj.status}).")
              raise serializers.ValidationError("This voting request is no longer active.")
 
         if request_obj.expiry_time < timezone.now():
-            print(f"DEBUG VoteSerializer: Request {request_obj.id} has expired.")
             raise serializers.ValidationError("This voting request is no longer active (expired).")
 
         if request_obj.request_type == 'resident_join':
             if not user_is_resident or not is_user_in_request_society:
-                 print(f"DEBUG VoteSerializer: User {voter.username} is not authorized to vote on this resident join request.")
                  raise serializers.ValidationError("You are not authorized to vote on this resident join request.")
         elif request_obj.request_type == 'provider_list':
              if not user_is_resident or not is_user_in_request_society:
-                  print(f"DEBUG VoteSerializer: User {voter.username} is not a resident member of society {request_obj.society.name} (ID: {request_obj.society.id}).")
                   raise serializers.ValidationError("You are not authorized to vote on this provider listing request.")
 
         if request_obj.initiated_by == voter:
-             print(f"DEBUG VoteSerializer: User {voter.username} is the initiator of Request {request_obj.id} and cannot vote.")
              raise serializers.ValidationError("You cannot vote on your own request.")
 
         data['voter'] = voter
-        print(f"DEBUG VoteSerializer: Validation successful for Request {request_obj.id}.")
         return data
-
 
 # New Serializer for initiating a resident join voting request
 class InitiateResidentJoinSerializer(serializers.Serializer):
@@ -454,8 +554,4 @@ class InitiateProviderListingSerializer(serializers.Serializer):
             society = Society.objects.get(id=value)
             return society
         except ObjectDoesNotExist:
-<<<<<<< HEAD
             raise serializers.ValidationError("Society with this ID does not exist.")
-=======
-            raise serializers.ValidationError("Society with this ID does not exist.")
->>>>>>> 5f03885cf197efe7039be365cd5f99f1a1214c2d
